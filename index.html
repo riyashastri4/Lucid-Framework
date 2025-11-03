@@ -415,6 +415,11 @@
             scenes.push(scene);
             document.getElementById('sceneDesc').value = '';
             
+            // Apply force-directed layout to prevent overlaps
+            for (let i = 0; i < 50; i++) {
+                applyForceLayout();
+            }
+            
             updateSceneSelects();
             updateSceneList();
             drawGraph();
@@ -488,6 +493,57 @@
             const items = document.querySelectorAll('.scene-item');
             items.forEach(item => item.classList.remove('selected'));
             event.target.closest('.scene-item').classList.add('selected');
+        }
+
+        // Check if a point is inside a circle (scene node)
+        function isPointInCircle(px, py, cx, cy, radius) {
+            const dx = px - cx;
+            const dy = py - cy;
+            return (dx * dx + dy * dy) <= (radius * radius);
+        }
+
+        // Find scene at mouse position
+        function findSceneAtPosition(x, y) {
+            for (let i = scenes.length - 1; i >= 0; i--) {
+                const scene = scenes[i];
+                const sx = scene.x + offset.x;
+                const sy = scene.y + offset.y;
+                if (isPointInCircle(x, y, sx, sy, 35)) {
+                    return scene;
+                }
+            }
+            return null;
+        }
+
+        // Apply force-directed layout to prevent overlaps
+        function applyForceLayout() {
+            const repulsionStrength = 5000;
+            const minDistance = 100;
+            
+            for (let i = 0; i < scenes.length; i++) {
+                let fx = 0, fy = 0;
+                
+                for (let j = 0; j < scenes.length; j++) {
+                    if (i === j) continue;
+                    
+                    const dx = scenes[i].x - scenes[j].x;
+                    const dy = scenes[i].y - scenes[j].y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (distance < minDistance && distance > 0) {
+                        const force = repulsionStrength / (distance * distance);
+                        fx += (dx / distance) * force;
+                        fy += (dy / distance) * force;
+                    }
+                }
+                
+                scenes[i].x += fx * 0.01;
+                scenes[i].y += fy * 0.01;
+                
+                // Keep within bounds
+                scenes[i].x = Math.max(80, Math.min(canvas.width - 80, scenes[i].x));
+                scenes[i].y = Math.max(80, Math.min(canvas.height - 80, scenes[i].y));
+            }
         }
 
         // Draw Graph on Canvas
@@ -592,29 +648,65 @@
             });
         }
 
-        // Canvas Drag Functionality
+        // Canvas Drag Functionality - supports both canvas panning and node dragging
+        let draggedScene = null;
+        let dragOffset = { x: 0, y: 0 };
+
         canvas.addEventListener('mousedown', (e) => {
-            isDragging = true;
-            dragStart = { x: e.clientX - offset.x, y: e.clientY - offset.y };
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+            
+            // Check if clicking on a scene node
+            draggedScene = findSceneAtPosition(mouseX, mouseY);
+            
+            if (draggedScene) {
+                // Dragging a scene node
+                dragOffset.x = mouseX - (draggedScene.x + offset.x);
+                dragOffset.y = mouseY - (draggedScene.y + offset.y);
+                canvas.style.cursor = 'grabbing';
+            } else {
+                // Dragging the canvas
+                isDragging = true;
+                dragStart = { x: e.clientX - offset.x, y: e.clientY - offset.y };
+            }
         });
 
         canvas.addEventListener('mousemove', (e) => {
-            if (isDragging) {
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+            
+            if (draggedScene) {
+                draggedScene.x = mouseX - offset.x - dragOffset.x;
+                draggedScene.y = mouseY - offset.y - dragOffset.y;
+                
+                draggedScene.x = Math.max(80, Math.min(canvas.width - 80, draggedScene.x));
+                draggedScene.y = Math.max(80, Math.min(canvas.height - 80, draggedScene.y));
+                
+                drawGraph();
+            } else if (isDragging) {
                 offset.x = e.clientX - dragStart.x;
                 offset.y = e.clientY - dragStart.y;
                 drawGraph();
+            } else {
+                const hoverScene = findSceneAtPosition(mouseX, mouseY);
+                canvas.style.cursor = hoverScene ? 'grab' : 'grab';
             }
         });
 
         canvas.addEventListener('mouseup', () => {
             isDragging = false;
+            draggedScene = null;
+            canvas.style.cursor = 'grab';
         });
 
         canvas.addEventListener('mouseleave', () => {
             isDragging = false;
+            draggedScene = null;
+            canvas.style.cursor = 'grab';
         });
 
-        // Analyze Transitions
         function analyzeTransitions() {
             if (scenes.length === 0) {
                 alert('Add scenes first to analyze');
@@ -641,7 +733,6 @@
             output.textContent = analysis.join('\n\n');
         }
 
-        // Dream Symbol Interpretations Database
         const dreamSymbols = {
             'forest': 'Exploration of the unconscious, feeling lost or searching for direction',
             'door': 'New opportunities, transitions, or choices in life',
@@ -675,7 +766,6 @@
             'road': 'Life path, journey, direction in life'
         };
 
-        // Interpret Dream Function
         function interpretDream() {
             if (scenes.length === 0) {
                 alert('Add dream scenes first to interpret');
@@ -736,7 +826,6 @@
                 interpretation.push(`• ${totalScenes - scenesWithTransitions} scene(s) have no exits - possible resolution points`);
             }
 
-            // Find most connected scene
             if (scenes.length > 0 && scenes.some(s => s.edges.length > 0)) {
                 const mostConnected = scenes.reduce((max, s) => 
                     s.edges.length > max.edges.length ? s : max
