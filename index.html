@@ -348,10 +348,7 @@
                 <!-- Actions Card -->
                 <div class="card">
                     <h2>⚡ Actions</h2>
-                    <div class="btn-group">
-                        <button class="btn btn-secondary" onclick="generateSequence()">Generate</button>
-                        <button class="btn btn-secondary" onclick="analyzeTransitions()">Analyze</button>
-                    </div>
+                    <button class="btn btn-secondary" onclick="analyzeTransitions()">Analyze Transitions</button>
                     <button class="btn" onclick="interpretDream()" style="margin-top: 12px;">🔮 Interpret Dream</button>
                 </div>
             </div>
@@ -617,52 +614,6 @@
             isDragging = false;
         });
 
-        // Generate Dream Sequence
-        function generateSequence() {
-            if (scenes.length === 0) {
-                alert('Add scenes first to generate a sequence');
-                return;
-            }
-
-            const steps = parseInt(prompt('Enter number of dream steps (e.g., 5):', '5'));
-            if (!steps || steps < 1) return;
-
-            // Start from random scene
-            let current = scenes[Math.floor(Math.random() * scenes.length)];
-            let sequence = [`🌟 Dream Sequence (${steps} steps)\n${'='.repeat(40)}\n`];
-
-            for (let i = 0; i < steps; i++) {
-                if (!current) break;
-                sequence.push(`${i + 1}. ${current.name}`);
-
-                // If no outgoing transitions, stop
-                if (current.edges.length === 0) {
-                    sequence.push('\n⚠️ No more transitions available');
-                    break;
-                }
-
-                // Choose next scene based on probabilities
-                const totalProb = current.edges.reduce((sum, e) => sum + e.probability, 0);
-                const randProb = Math.random() * totalProb;
-                let cumulative = 0;
-                let nextScene = null;
-
-                for (const edge of current.edges) {
-                    cumulative += edge.probability;
-                    if (randProb <= cumulative) {
-                        nextScene = edge.to;
-                        break;
-                    }
-                }
-
-                current = nextScene;
-            }
-
-            const output = document.getElementById('sequenceOutput');
-            output.style.display = 'block';
-            output.textContent = sequence.join('\n');
-        }
-
         // Analyze Transitions
         function analyzeTransitions() {
             if (scenes.length === 0) {
@@ -690,107 +641,119 @@
             output.textContent = analysis.join('\n\n');
         }
 
-        // Interpret Dream Function (uses online API)
-        async function interpretDream() {
+        // Dream Symbol Interpretations Database
+        const dreamSymbols = {
+            'forest': 'Exploration of the unconscious, feeling lost or searching for direction',
+            'door': 'New opportunities, transitions, or choices in life',
+            'water': 'Emotions, the subconscious mind, purification or cleansing',
+            'flying': 'Freedom, ambition, escaping limitations or rising above problems',
+            'falling': 'Loss of control, anxiety, fear of failure',
+            'animal': 'Instincts, natural behaviors, untamed aspects of personality',
+            'house': 'The self, different rooms represent different aspects of personality',
+            'mirror': 'Self-reflection, self-image, how you see yourself',
+            'stairs': 'Progress, ascension or descent in life journey',
+            'ocean': 'Vast emotions, the collective unconscious, life mysteries',
+            'mountain': 'Challenges, goals, spiritual elevation or achievement',
+            'darkness': 'Unknown aspects of self, fear, mystery or the unconscious',
+            'light': 'Enlightenment, clarity, hope, divine guidance',
+            'running': 'Avoidance, escaping from something, urgency or anxiety',
+            'death': 'Transformation, endings leading to new beginnings, change',
+            'birth': 'New beginnings, creative potential, fresh start',
+            'fire': 'Passion, transformation, anger, or purification',
+            'cloud': 'Confusion, obscured vision, transition or lightness',
+            'star': 'Hope, guidance, aspirations, divine connection',
+            'owl': 'Wisdom, intuition, seeing what is hidden in darkness',
+            'snake': 'Transformation, healing, hidden fears or wisdom',
+            'bridge': 'Transition, connection between two states or places',
+            'garden': 'Growth, cultivation of ideas, paradise or peace',
+            'storm': 'Emotional turmoil, conflict, powerful change',
+            'sun': 'Consciousness, vitality, life force, clarity',
+            'moon': 'Intuition, feminine energy, cycles, hidden aspects',
+            'tree': 'Life, growth, connection between earth and sky',
+            'bird': 'Freedom, perspective, spiritual messages',
+            'child': 'Innocence, new beginnings, inner child',
+            'road': 'Life path, journey, direction in life'
+        };
+
+        // Interpret Dream Function
+        function interpretDream() {
             if (scenes.length === 0) {
                 alert('Add dream scenes first to interpret');
                 return;
             }
 
-            const output = document.getElementById('sequenceOutput');
-            output.style.display = 'block';
-            output.textContent = '🔮 Fetching dream interpretation from online library...\n\nPlease wait...';
-
-            let interpretation = [`🔮 Dream Interpretation (Powered by AI)\n${'='.repeat(40)}\n\n`];
-            interpretation.push('⚠️ DISCLAIMER: This interpretation uses AI-generated content based on\n');
-            interpretation.push('psychological symbolism and dream theory. It is not a substitute for\n');
-            interpretation.push('professional psychological or medical advice. Dream meanings are highly personal.\n\n');
+            let interpretation = [`🔮 Dream Interpretation\n${'='.repeat(40)}\n\n`];
+            interpretation.push('⚠️ DISCLAIMER: This interpretation is based on common dream symbolism\n');
+            interpretation.push('and psychological theory. It is not a substitute for professional\n');
+            interpretation.push('psychological or medical advice. Dream meanings are highly personal.\n\n');
             interpretation.push('─'.repeat(40) + '\n\n');
             
-            // Prepare dream description for API
-            const dreamDescription = scenes.map((s, i) => {
-                const transitions = s.edges.map(e => 
-                    `transitions to "${e.to.name}" (${(e.probability * 100).toFixed(0)}% probability)`
-                ).join(', ');
-                return `Scene ${i + 1}: "${s.name}"${transitions ? ' - ' + transitions : ''}`;
-            }).join('; ');
+            // Analyze all scenes for symbolic content
+            const foundSymbols = new Map();
+            
+            scenes.forEach(scene => {
+                const sceneLower = scene.name.toLowerCase();
+                Object.keys(dreamSymbols).forEach(symbol => {
+                    if (sceneLower.includes(symbol)) {
+                        if (!foundSymbols.has(symbol)) {
+                            foundSymbols.set(symbol, []);
+                        }
+                        foundSymbols.get(symbol).push(scene.name);
+                    }
+                });
+            });
 
-            try {
-                // Using a free AI API for dream interpretation
-                const response = await fetch('https://api.meaningcloud.com/summarization-1.0', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                    },
-                    body: new URLSearchParams({
-                        'key': 'demo',  // Demo key for testing
-                        'txt': `Analyze this dream sequence symbolically: ${dreamDescription}`,
-                        'sentences': '5'
-                    })
+            if (foundSymbols.size === 0) {
+                interpretation.push('No common dream symbols detected in your scenes.\n\n');
+                interpretation.push('💭 General Interpretation:\n');
+                interpretation.push('Your dream appears to be highly personal and unique. Consider:\n');
+                interpretation.push('• What emotions did you feel during each scene?\n');
+                interpretation.push('• Are there recurring themes or patterns?\n');
+                interpretation.push('• How do the scenes connect to your waking life?\n\n');
+            } else {
+                interpretation.push('🌟 Symbolic Meanings Found:\n\n');
+                
+                foundSymbols.forEach((sceneList, symbol) => {
+                    interpretation.push(`📌 ${symbol.toUpperCase()}`);
+                    interpretation.push(`   Meaning: ${dreamSymbols[symbol]}`);
+                    interpretation.push(`   Found in: "${sceneList[0]}"${sceneList.length > 1 ? ` (and ${sceneList.length - 1} more)` : ''}`);
+                    interpretation.push('');
                 });
 
-                if (!response.ok) {
-                    throw new Error('API unavailable');
-                }
+                interpretation.push('\n');
+            }
 
-                const data = await response.json();
-                
-                interpretation.push('🌟 AI-Powered Interpretation:\n\n');
-                
-                if (data.summary) {
-                    interpretation.push(data.summary + '\n\n');
-                }
+            // Analyze transition patterns
+            interpretation.push('🔄 Pattern Analysis:\n');
+            
+            const totalScenes = scenes.length;
+            const scenesWithTransitions = scenes.filter(s => s.edges.length > 0).length;
+            const avgTransitions = scenes.reduce((sum, s) => sum + s.edges.length, 0) / totalScenes;
+            
+            interpretation.push(`• Dream Complexity: ${totalScenes} scenes with ${avgTransitions.toFixed(1)} avg transitions`);
+            
+            if (scenesWithTransitions < totalScenes) {
+                interpretation.push(`• ${totalScenes - scenesWithTransitions} scene(s) have no exits - possible resolution points`);
+            }
 
-                // Add pattern analysis
-                interpretation.push('🔄 Pattern Analysis:\n');
-                
-                const totalScenes = scenes.length;
-                const scenesWithTransitions = scenes.filter(s => s.edges.length > 0).length;
-                const avgTransitions = scenes.reduce((sum, s) => sum + s.edges.length, 0) / totalScenes;
-                
-                interpretation.push(`• Dream Complexity: ${totalScenes} scenes with ${avgTransitions.toFixed(1)} avg transitions`);
-                
-                if (scenesWithTransitions < totalScenes) {
-                    interpretation.push(`• ${totalScenes - scenesWithTransitions} scene(s) have no exits - possible resolution points`);
-                }
-
-                // Find most connected scene
+            // Find most connected scene
+            if (scenes.length > 0 && scenes.some(s => s.edges.length > 0)) {
                 const mostConnected = scenes.reduce((max, s) => 
                     s.edges.length > max.edges.length ? s : max
                 );
                 if (mostConnected.edges.length > 0) {
-                    interpretation.push(`• Central theme: "${mostConnected.name}" (most connected)`);
+                    interpretation.push(`• Central theme: "${mostConnected.name}" (most connected scene)`);
                 }
-
-                interpretation.push('\n💡 Reflection Questions:');
-                interpretation.push('• What real-life situations mirror these dream transitions?');
-                interpretation.push('• Which scenes evoke the strongest emotions?');
-                interpretation.push('• What patterns repeat in your waking life?');
-
-            } catch (error) {
-                // Fallback to basic analysis if API fails
-                interpretation.push('⚠️ Online interpretation service temporarily unavailable.\n\n');
-                interpretation.push('📊 Local Analysis:\n\n');
-                
-                scenes.forEach((scene, i) => {
-                    interpretation.push(`Scene ${i + 1}: "${scene.name}"`);
-                    if (scene.edges.length > 0) {
-                        const topTransition = scene.edges.reduce((max, e) => 
-                            e.probability > max.probability ? e : max
-                        );
-                        interpretation.push(`  → Leads primarily to: "${topTransition.to.name}"`);
-                    } else {
-                        interpretation.push(`  → Terminal scene (no exits)`);
-                    }
-                    interpretation.push('');
-                });
-
-                interpretation.push('\n💭 General Guidance:');
-                interpretation.push('• Consider the emotional tone of each scene');
-                interpretation.push('• Notice which transitions feel natural vs forced');
-                interpretation.push('• Reflect on how these scenes relate to current life events');
             }
 
+            interpretation.push('\n💡 Reflection Questions:');
+            interpretation.push('• What real-life situations mirror these dream transitions?');
+            interpretation.push('• Which scenes evoke the strongest emotions?');
+            interpretation.push('• What patterns repeat in your waking life?');
+            interpretation.push('• How do the probabilities reflect your feelings about choices?');
+
+            const output = document.getElementById('sequenceOutput');
+            output.style.display = 'block';
             output.textContent = interpretation.join('\n');
         }
     </script>
