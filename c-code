@@ -1,0 +1,144 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+typedef struct Transition {
+    struct Scene *to;
+    float probability;
+    struct Transition *next;
+} Transition;
+
+typedef struct Scene {
+    int id;
+    char name[50];
+    Transition *edges;
+    struct Scene *next;
+} Scene;
+
+Scene *dreamGraph = NULL;
+int sceneCount = 0;
+
+// Function to find a scene by ID
+Scene* findSceneByID(int id) {
+    Scene *temp = dreamGraph;
+    while(temp != NULL) {
+        if(temp->id == id)
+            return temp;
+        temp = temp->next;
+    }
+    return NULL;
+}
+
+void addScene() {
+    Scene *newScene = (Scene*)malloc(sizeof(Scene));
+    newScene->id = ++sceneCount;
+    printf("Enter scene description: ");
+    getchar(); // clear newline
+    fgets(newScene->name, 50, stdin);
+    newScene->name[strcspn(newScene->name, "\n")] = 0; // remove newline
+    newScene->edges = NULL;
+    newScene->next = dreamGraph;
+    dreamGraph = newScene;
+    printf("Scene added with ID %d.\n", newScene->id);
+}
+
+void addTransition() {
+    int fromID, toID;
+    float prob;
+    printf("Enter source scene ID: ");
+    scanf("%d", &fromID);
+    printf("Enter destination scene ID: ");
+    scanf("%d", &toID);
+    printf("Enter transition probability (0.0 - 1.0): ");
+    scanf("%f", &prob);
+
+    Scene *fromScene = findSceneByID(fromID);
+    Scene *toScene = findSceneByID(toID);
+
+    if(fromScene == NULL || toScene == NULL) {
+        printf("Invalid scene ID(s).\n");
+        return;
+    }
+
+    Transition *newEdge = (Transition*)malloc(sizeof(Transition));
+    newEdge->to = toScene;
+    newEdge->probability = prob;
+    newEdge->next = fromScene->edges;
+    fromScene->edges = newEdge;
+
+    printf("Transition added from '%s' to '%s'.\n", fromScene->name, toScene->name);
+}
+
+void displayGraph() {
+    if(dreamGraph == NULL) {
+        printf("No scenes in the graph.\n");
+        return;
+    }
+
+    Scene *temp = dreamGraph;
+    printf("\n--- Dream Graph ---\n");
+    while(temp != NULL) {
+        printf("Scene ID %d: %s\n", temp->id, temp->name);
+        Transition *edge = temp->edges;
+        while(edge != NULL) {
+            printf("  --> To '%s' (Prob: %.2f)\n", edge->to->name, edge->probability);
+            edge = edge->next;
+        }
+        temp = temp->next;
+    }
+}
+
+// Analyze most frequent transitions
+void analyzeTransitions() {
+    if(dreamGraph == NULL) {
+        printf("No scenes to analyze.\n");
+        return;
+    }
+
+    Scene *temp = dreamGraph;
+    printf("\n--- Transition Analysis ---\n");
+    while(temp != NULL) {
+        Transition *edge = temp->edges;
+        Transition *maxEdge = NULL;
+        float maxProb = -1.0;
+        while(edge != NULL) {
+            if(edge->probability > maxProb) {
+                maxProb = edge->probability;
+                maxEdge = edge;
+            }
+            edge = edge->next;
+        }
+        if(maxEdge != NULL)
+            printf("Scene '%s' most likely transitions to '%s' (Prob: %.2f)\n",
+                   temp->name, maxEdge->to->name, maxEdge->probability);
+        else
+            printf("Scene '%s' has no outgoing transitions\n", temp->name);
+        temp = temp->next;
+    }
+}
+
+int main() {
+    int choice;
+
+    while(1) {
+        printf("\n--- LUCID FRAMEWORK ---\n");
+        printf("1. Add Dream Scene\n");
+        printf("2. Add Transition Between Scenes\n");
+        printf("3. Display Dream Graph\n");
+        printf("4. Analyze Most Frequent Transitions\n");
+        printf("5. Exit\n");
+        printf("Enter your choice: ");
+        scanf("%d", &choice);
+
+        switch(choice) {
+            case 1: addScene(); break;
+            case 2: addTransition(); break;
+            case 3: displayGraph(); break;
+            case 4: analyzeTransitions(); break;
+            case 5: exit(0);
+            default: printf("Invalid choice. Try again.\n");
+        }
+    }
+
+    return 0;
+}
