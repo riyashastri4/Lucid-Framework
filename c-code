@@ -18,7 +18,6 @@ typedef struct Scene {
 Scene *dreamGraph = NULL;
 int sceneCount = 0;
 
-// Function to find a scene by ID
 Scene* findSceneByID(int id) {
     Scene *temp = dreamGraph;
     while(temp != NULL) {
@@ -33,9 +32,9 @@ void addScene() {
     Scene *newScene = (Scene*)malloc(sizeof(Scene));
     newScene->id = ++sceneCount;
     printf("Enter scene description: ");
-    getchar(); // clear newline
+    getchar(); 
     fgets(newScene->name, 50, stdin);
-    newScene->name[strcspn(newScene->name, "\n")] = 0; // remove newline
+    newScene->name[strcspn(newScene->name, "\n")] = 0; 
     newScene->edges = NULL;
     newScene->next = dreamGraph;
     dreamGraph = newScene;
@@ -88,7 +87,6 @@ void displayGraph() {
     }
 }
 
-// Analyze most frequent transitions
 void analyzeTransitions() {
     if(dreamGraph == NULL) {
         printf("No scenes to analyze.\n");
